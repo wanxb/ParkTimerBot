@@ -177,13 +177,48 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main(config_path: str = 'config.ini'):
+    import traceback
+
     config = configparser.ConfigParser()
-    config.read(config_path)
-    TOKEN = config['DEFAULT']['TOKEN']
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config.read_file(f)
+    except FileNotFoundError:
+        print(f"ERROR: config file '{config_path}' not found.")
+        return
+    except UnicodeDecodeError:
+        # try with system encoding as fallback
+        with open(config_path, 'r', encoding='mbcs') as f:
+            config.read_file(f)
+
+    # load token
+    try:
+        TOKEN = config['DEFAULT']['TOKEN']
+        # strip possible surrounding quotes
+        TOKEN = TOKEN.strip().strip('"').strip("'")
+    except Exception:
+        print('ERROR: TOKEN not found in config. Aborting.')
+        return
+
+    # override CONFIG from config file when present
+    for key in ('FREE_MINUTES', 'PRE_ALERT_MINUTES', 'REMIND_INTERVAL_MINUTES', 'REMIND_HOURS', 'EXIT_GRACE_MINUTES'):
+        if key in config['DEFAULT']:
+            try:
+                CONFIG[key] = int(config['DEFAULT'][key])
+            except Exception:
+                pass
+
+    print(f"Starting ParkTimerBot with FREE_MINUTES={CONFIG['FREE_MINUTES']}, PRE_ALERT_MINUTES={CONFIG['PRE_ALERT_MINUTES']}, REMIND_INTERVAL_MINUTES={CONFIG['REMIND_INTERVAL_MINUTES']}, REMIND_HOURS={CONFIG['REMIND_HOURS']}, EXIT_GRACE_MINUTES={CONFIG['EXIT_GRACE_MINUTES']}")
+    print(f"Using token prefix: {TOKEN[:6]}... (hidden)")
+
     app = Application.builder().token(TOKEN).build()
-    
+
     app.add_handler(CommandHandler("start", lambda u, c: u.message.reply_text("停车助手已就绪", reply_markup=get_reply_keyboard('IDLE'))))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
-    print("Bot is running...")
-    app.run_polling()
+
+    try:
+        print("Bot is running...")
+        app.run_polling()
+    except Exception as e:
+        print('Unhandled exception in run_polling:')
+        traceback.print_exc()
