@@ -63,8 +63,6 @@ ENV/
 # config
 config.ini
 config.local.ini
-config.*.ini
-config.example.ini
 
 # Node/npm
 package-lock.json
