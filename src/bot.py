@@ -178,27 +178,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main(config_path: str = 'config.ini'):
     import traceback
+    import os
+    import configparser
 
-    config = configparser.ConfigParser()
-    try:
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config.read_file(f)
-    except FileNotFoundError:
-        print(f"ERROR: config file '{config_path}' not found.")
-        return
-    except UnicodeDecodeError:
-        # try with system encoding as fallback
-        with open(config_path, 'r', encoding='mbcs') as f:
-            config.read_file(f)
+    # 1. 尝试从环境变量读取
+    token = os.environ.get('TOKEN')
 
-    # load token
-    try:
-        TOKEN = config['DEFAULT']['TOKEN']
-        # strip possible surrounding quotes
-        TOKEN = TOKEN.strip().strip('"').strip("'")
-    except Exception:
-        print('ERROR: TOKEN not found in config. Aborting.')
-        return
+    # 2. 如果环境变量没有，再尝试读取本地 config.ini（兼容本地开发）
+    if not token:
+        config = configparser.ConfigParser()
+        # 检查文件是否存在，避免报错
+        if os.path.exists('config.ini'):
+            config.read('config.ini')
+            token = config.get('DEFAULT', 'TOKEN', fallback=None)
+        elif os.path.exists('config.example.ini'):
+            # 也可以 fallback 到 example，但通常 example 里没有真 Token
+            config.read('config.example.ini')
+            token = config.get('DEFAULT', 'TOKEN', fallback=None)
+
+    # 3. 检查最终是否拿到了 Token
+    if not token or "your-telegram-bot-token" in token:
+        print("错误：未找到有效的 BOT TOKEN")
+        exit(1)
 
     # override CONFIG from config file when present
     for key in ('FREE_MINUTES', 'PRE_ALERT_MINUTES', 'REMIND_INTERVAL_MINUTES', 'REMIND_HOURS', 'EXIT_GRACE_MINUTES'):
